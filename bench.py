@@ -14,8 +14,11 @@ from emoji.unicode_codes.data_dict import EMOJI_DATA
 import re
 import os
 
+import matplotlib.pyplot as plt
+
+
 # Set DEBUG=1 to print emoji, escaped octets, and base64 encoded escaped octets
-DEBUG = os.getenv("DEBUG") == 1
+DEBUG = os.getenv("DEBUG") == "1"
 
 # The keys of EMOJI_DATA are already utf-8 encoded e.g. u'\U0001F947'
 EMOJIS = list(EMOJI_DATA.keys())
@@ -37,25 +40,27 @@ def encode_and_compress_emoji(num_emojis, emojis):
     if DEBUG:
         print("".join([emoji for emoji in emojis]))
 
-    # Join the emojis together into a string
-    escaped_octets = "".join([encode_emoji(emoji) for emoji in emojis])
-
+    # gzip(escape(emoji))
+    escaped_emoji = "".join([encode_emoji(emoji) for emoji in emojis])
     if DEBUG:
-        print(escaped_octets)
+        print(escaped_emoji)
+    gzipped_escaped_emoji = gzip.compress(escaped_emoji.encode("utf-8"))
 
-    # Encode the emojis using Base64
-    # base64_encoded = base64.b64encode(escaped_octets).decode("utf-8")
-    base64_encoded = base64.b64encode(escaped_octets.encode("utf-8"))
-
+    # gzip(base64(escape(emoji)))
+    base64_escaped_emoji = base64.b64encode(escaped_emoji.encode("utf-8"))
     if DEBUG:
-        print(base64_encoded)
+        print(base64_escaped_emoji)
+    gzipped_base64_escaped_emoji = gzip.compress(base64_escaped_emoji)
 
-    # Compress both encoded strings using gzip
-    escaped_octets_compressed = gzip.compress(escaped_octets.encode("utf-8"))
-    base64_compressed = gzip.compress(base64_encoded)
+    # gzip(base64(emoji))
+    base64_emoji = base64.b64encode("".join(emojis).encode("utf-8"))
+    gzipped_base64_emoji = gzip.compress(base64_emoji)
 
-    # Return the sizes of the compressed data
-    return len(escaped_octets_compressed), len(base64_compressed)
+    return (
+        len(gzipped_escaped_emoji),
+        len(gzipped_base64_escaped_emoji),
+        len(gzipped_base64_emoji),
+    )
 
 
 # Define the range of numbers of emojis to test
@@ -66,38 +71,64 @@ with open("emoji_encoding_benchmark.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile)
 
     # Write the header row to the CSV file
-    writer.writerow(["Num Emojis", "Escaped Octets Size", "Base64 Encoded Size"])
+    writer.writerow(
+        [
+            "Num Emojis",
+            "gzip(escape(emoji))",
+            "gzip(base64(escape(emoji)))",
+            "gzip(base64(emoji))",
+        ]
+    )
 
     # Iterate through the range of numbers of emojis
     for num_emojis in num_emojis_range:
         # Call the encode_and_compress_emoji function
-        escaped_octets_size, base64_encoded_size = encode_and_compress_emoji(
-            num_emojis, EMOJIS
-        )
+        (
+            gzipped_escaped_emoji_size,
+            gzipped_base64_escaped_emoji_size,
+            gzipped_base64_emoji_size,
+        ) = encode_and_compress_emoji(num_emojis, EMOJIS)
 
         # Write the results to the CSV file
-        writer.writerow([num_emojis, escaped_octets_size, base64_encoded_size])
+        writer.writerow(
+            [
+                num_emojis,
+                gzipped_escaped_emoji_size,
+                gzipped_base64_escaped_emoji_size,
+                gzipped_base64_emoji_size,
+            ]
+        )
 
         # Write the results to stdout as well
         sys.stdout.write(
-            f"Num Emojis: {num_emojis}, Escaped Octets Size: {escaped_octets_size}, Base64 Encoded Size: {base64_encoded_size}\n"
+            f"Num Emojis: {num_emojis}, gzip(escape(emoji)): {gzipped_escaped_emoji_size}, gzip(base64(escape(emoji))): {gzipped_base64_escaped_emoji_size}, gzip(base64(emoji)): {gzipped_base64_emoji_size}\n"
         )
-
-import matplotlib.pyplot as plt
-import csv
 
 # Read the CSV file
 with open("emoji_encoding_benchmark.csv", "r") as csvfile:
     reader = csv.DictReader(csvfile)
-    data = {"num_emojis": [], "escaped_octets_size": [], "base64_encoded_size": []}
+    data = {
+        "num_emojis": [],
+        "gzip(escape(emoji))": [],
+        "gzip(base64(escape(emoji)))": [],
+        "gzip(base64(emoji))": [],
+    }
     for row in reader:
         data["num_emojis"].append(int(row["Num Emojis"]))
-        data["escaped_octets_size"].append(int(row["Escaped Octets Size"]))
-        data["base64_encoded_size"].append(int(row["Base64 Encoded Size"]))
+        data["gzip(escape(emoji))"].append(int(row["gzip(escape(emoji))"]))
+        data["gzip(base64(escape(emoji)))"].append(
+            int(row["gzip(base64(escape(emoji)))"])
+        )
+        data["gzip(base64(emoji))"].append(int(row["gzip(base64(emoji))"]))
 
 # Create a plot
-plt.plot(data["num_emojis"], data["escaped_octets_size"], label="Escaped Octets Size")
-plt.plot(data["num_emojis"], data["base64_encoded_size"], label="Base64 Encoded Size")
+plt.plot(data["num_emojis"], data["gzip(escape(emoji))"], label="gzip(escape(emoji))")
+plt.plot(
+    data["num_emojis"],
+    data["gzip(base64(escape(emoji)))"],
+    label="gzip(base64(escape(emoji)))",
+)
+plt.plot(data["num_emojis"], data["gzip(base64(emoji))"], label="gzip(base64(emoji))")
 plt.xlabel("Number of Emojis")
 plt.ylabel("Size")
 plt.title("Emoji Encoding Benchmark Results")
