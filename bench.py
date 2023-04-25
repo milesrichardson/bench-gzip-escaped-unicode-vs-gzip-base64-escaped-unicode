@@ -34,7 +34,7 @@ def encode_emoji(emoji):
 
 def encode_and_compress_emoji(num_emojis, emojis):
     # Get a random sample of emojis from the dict
-    emojis = random.sample(emojis, num_emojis)
+    emojis = random.choices(emojis, k=num_emojis)
 
     # The actual emojis
     if DEBUG:
@@ -64,7 +64,7 @@ def encode_and_compress_emoji(num_emojis, emojis):
 
 
 # Define the range of numbers of emojis to test
-num_emojis_range = range(100, 1001, 100)
+num_emojis_range = range(1, 10_000, 100)
 
 # Open a CSV file for output
 with open("emoji_encoding_benchmark.csv", "w", newline="") as csvfile:
@@ -122,12 +122,12 @@ with open("emoji_encoding_benchmark.csv", "r") as csvfile:
         data["gzip(base64(emoji))"].append(int(row["gzip(base64(emoji))"]))
 
 # Create a plot
-plt.plot(data["num_emojis"], data["gzip(escape(emoji))"], label="gzip(escape(emoji))")
 plt.plot(
     data["num_emojis"],
     data["gzip(base64(escape(emoji)))"],
     label="gzip(base64(escape(emoji)))",
 )
+plt.plot(data["num_emojis"], data["gzip(escape(emoji))"], label="gzip(escape(emoji))")
 plt.plot(data["num_emojis"], data["gzip(base64(emoji))"], label="gzip(base64(emoji))")
 plt.xlabel("Number of Emojis")
 plt.ylabel("Size")
